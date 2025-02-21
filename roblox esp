@@ -1,0 +1,151 @@
+-- Script to show an ESP box around all visible players with a beautiful, rounded UI toggle overlaying all windows
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+local SCREEN_BOX_SIZE = 75 -- Fixed screen size for ESP boxes
+local CORNER_OFFSET = 10 -- Fixed corner length
+local ESP_ENABLED = true -- Toggle for ESP visibility
+local ESP_TOGGLE_KEY = Enum.KeyCode.F -- Default keybind for ESP toggle
+local WAITING_FOR_KEYBIND = false
+
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.CoreGui
+
+local ToggleFrame = Instance.new("Frame")
+ToggleFrame.Parent = ScreenGui
+ToggleFrame.Size = UDim2.new(0, 180, 0, 80)
+ToggleFrame.Position = UDim2.new(0, 10, 0, 10)
+ToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleFrame.BorderSizePixel = 0
+ToggleFrame.BackgroundTransparency = 0.2
+ToggleFrame.Active = true
+ToggleFrame.Draggable = true
+ToggleFrame.ClipsDescendants = true
+ToggleFrame.ZIndex = 2
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = ToggleFrame
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Parent = ToggleFrame
+ToggleButton.Size = UDim2.new(1, -10, 0, 40)
+ToggleButton.Position = UDim2.new(0, 5, 0, 10)
+ToggleButton.Text = "ESP ON"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 16
+ToggleButton.ZIndex = 3
+
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 8)
+ButtonCorner.Parent = ToggleButton
+
+local KeybindButton = Instance.new("TextButton")
+KeybindButton.Parent = ToggleFrame
+KeybindButton.Size = UDim2.new(0, 40, 0, 40)
+KeybindButton.Position = UDim2.new(1, -50, 0, 10)
+KeybindButton.Text = "⌨"
+KeybindButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+KeybindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeybindButton.Font = Enum.Font.GothamBold
+KeybindButton.TextSize = 20
+KeybindButton.ZIndex = 3
+
+local KeybindCorner = Instance.new("UICorner")
+KeybindCorner.CornerRadius = UDim.new(0, 8)
+KeybindCorner.Parent = KeybindButton
+
+local NameLabel = Instance.new("TextLabel")
+NameLabel.Parent = ToggleFrame
+NameLabel.Size = UDim2.new(1, 0, 0, 20)
+NameLabel.Position = UDim2.new(0, 0, 1, 0)
+NameLabel.Text = "Made by Charlie"
+NameLabel.BackgroundTransparency = 1
+NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+NameLabel.Font = Enum.Font.GothamBold
+NameLabel.TextSize = 14
+NameLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+local function createESP()
+    local Library = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            Library[player] = {
+                TL1 = Drawing.new("Line"), TL2 = Drawing.new("Line"),
+                TR1 = Drawing.new("Line"), TR2 = Drawing.new("Line"),
+                BL1 = Drawing.new("Line"), BL2 = Drawing.new("Line"),
+                BR1 = Drawing.new("Line"), BR2 = Drawing.new("Line")
+            }
+        end
+    end
+    return Library
+end
+
+local Library = createESP()
+
+local function updateESP()
+    if not ESP_ENABLED then
+        for _, lines in pairs(Library) do
+            for _, line in pairs(lines) do
+                line.Visible = false
+            end
+        end
+        return
+    end
+    
+    for player, lines in pairs(Library) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local Hum = player.Character
+            local screenPos, onScreen = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position)
+            
+            if onScreen and screenPos.Z > 0 then -- Only render if in front of the camera
+                local TL = Vector2.new(screenPos.X - SCREEN_BOX_SIZE / 2, screenPos.Y - SCREEN_BOX_SIZE / 2)
+                local TR = Vector2.new(screenPos.X + SCREEN_BOX_SIZE / 2, screenPos.Y - SCREEN_BOX_SIZE / 2)
+                local BL = Vector2.new(screenPos.X - SCREEN_BOX_SIZE / 2, screenPos.Y + SCREEN_BOX_SIZE / 2)
+                local BR = Vector2.new(screenPos.X + SCREEN_BOX_SIZE / 2, screenPos.Y + SCREEN_BOX_SIZE / 2)
+                
+                for _, line in pairs(lines) do
+                    line.Visible = true
+                end
+                
+                lines.TL1.From = TL lines.TL1.To = Vector2.new(TL.X + CORNER_OFFSET, TL.Y)
+                lines.TL2.From = TL lines.TL2.To = Vector2.new(TL.X, TL.Y + CORNER_OFFSET)
+                
+                lines.TR1.From = TR lines.TR1.To = Vector2.new(TR.X - CORNER_OFFSET, TR.Y)
+                lines.TR2.From = TR lines.TR2.To = Vector2.new(TR.X, TR.Y + CORNER_OFFSET)
+                
+                lines.BL1.From = BL lines.BL1.To = Vector2.new(BL.X + CORNER_OFFSET, BL.Y)
+                lines.BL2.From = BL lines.BL2.To = Vector2.new(BL.X, BL.Y - CORNER_OFFSET)
+                
+                lines.BR1.From = BR lines.BR1.To = Vector2.new(BR.X - CORNER_OFFSET, BR.Y)
+                lines.BR2.From = BR lines.BR2.To = Vector2.new(BR.X, BR.Y - CORNER_OFFSET)
+            else
+                for _, line in pairs(lines) do
+                    line.Visible = false
+                end
+            end
+        end
+    end
+end
+
+KeybindButton.MouseButton1Click:Connect(function()
+    KeybindButton.Text = "..."
+    WAITING_FOR_KEYBIND = true
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if WAITING_FOR_KEYBIND and input.UserInputType == Enum.UserInputType.Keyboard then
+        ESP_TOGGLE_KEY = input.KeyCode
+        KeybindButton.Text = input.KeyCode.Name
+        WAITING_FOR_KEYBIND = false
+    elseif input.KeyCode == ESP_TOGGLE_KEY then
+        ESP_ENABLED = not ESP_ENABLED
+    end
+end)
+
+RunService.RenderStepped:Connect(updateESP)
